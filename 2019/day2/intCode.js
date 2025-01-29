@@ -38,7 +38,7 @@ class Interpreter {
         );
       }
 
-      this.#cursorPos++;
+      ++this.#cursorPos;
     }
   }
 
