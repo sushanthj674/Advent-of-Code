@@ -1,57 +1,7 @@
-class Interpreter {
-  #instructions;
-  #cursorPos;
-
-  constructor(rawData) {
-    this.#instructions = [...rawData];
-    this.#cursorPos = 0;
-  }
-
-  #add(num1, num2) {
-    return num1 + num2;
-  }
-
-  #mul(num1, num2) {
-    return num1 * num2;
-  }
-
-  #core() {
-    while (this.#cursorPos < this.#instructions.length) {
-      const opcode = this.#instructions[this.#cursorPos];
-
-      if (opcode === 99) break;
-
-      const param1Pos = this.#instructions[++this.#cursorPos];
-      const param2Pos = this.#instructions[++this.#cursorPos];
-      const resultPos = this.#instructions[++this.#cursorPos];
-
-      const param1 = this.#instructions[param1Pos];
-      const param2 = this.#instructions[param2Pos];
-
-      if (opcode === 1) {
-        this.#instructions[resultPos] = this.#add(param1, param2);
-      } else if (opcode === 2) {
-        this.#instructions[resultPos] = this.#mul(param1, param2);
-      } else {
-        throw new Error(
-          `Unknown opcode ${opcode} at position ${this.#cursorPos}`,
-        );
-      }
-
-      ++this.#cursorPos;
-    }
-  }
-
-  printOutput() {
-    this.#core();
-    return this.#instructions[0];
-  }
-}
-
 const intCode = [
   1,
-  0,
-  0,
+  12,
+  2,
   3,
   1,
   1,
@@ -160,6 +110,82 @@ const intCode = [
   0,
 ];
 
-const obj = new Interpreter(intCode);
+class Interpreter {
+  constructor(rawCode) {
+    this.instructions = [...rawCode];
+  }
 
-console.log(obj.printOutput());
+  getInstruction(from) {
+    const [opcode, opt1Address, opt2Address, resultAddress] = [
+      this.instructions[from],
+      this.instructions[from + 1],
+      this.instructions[from + 2],
+      this.instructions[from + 3],
+    ];
+
+    return [
+      opcode,
+      this.instructions[opt1Address],
+      this.instructions[opt2Address],
+      resultAddress,
+    ];
+  }
+
+  upadatevalueAt(address, value) {
+    this.instructions[address] = value;
+  }
+
+  getOutput() {
+    const [output] = this.instructions;
+    return output;
+  }
+}
+
+const operations = {
+  1: (a, b) => a + b,
+  2: (a, b) => a * b,
+};
+
+const core = (intCode) => {
+  let cursorPos = 0;
+  let isHalt = false;
+  const interpreter = new Interpreter(intCode);
+  while (!isHalt) {
+    const [opcode, opt1, opt2, resultAddress] = interpreter.getInstruction(
+      cursorPos,
+    );
+
+    if (opcode !== 99) {
+      const result = operations[opcode](opt1, opt2);
+      interpreter.upadatevalueAt(resultAddress, result);
+      cursorPos += 4;
+    } else {
+      isHalt = true;
+    }
+  }
+
+  return interpreter.getOutput();
+};
+
+const deCode = (result) => {
+  let noun = 0;
+  let verb = 0;
+  while (noun < 100) {
+    intCode[1] = noun;
+    intCode[2] = verb;
+
+    const actualResult = core(intCode);
+
+    if (result === actualResult) {
+      return { noun: noun, verb: verb };
+    }
+
+    verb++;
+    if (verb > 99) {
+      noun++;
+      verb = 0;
+    }
+  }
+};
+
+console.log(deCode(19690720));
