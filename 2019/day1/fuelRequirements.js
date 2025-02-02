@@ -1,4 +1,4 @@
-const data = Deno.readTextFileSync("./data.txt").split("\n");
+import { data } from "./input.js";
 
 
 const fuelRequiredFor = (mass) => {
