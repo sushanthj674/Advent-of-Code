@@ -680,123 +680,88 @@ const input = [
 ];
 
 class Interpreter {
-  #cursorpos;
-  constructor(rawCode) {
-    this.instructions = [...rawCode];
+  constructor(program, input = []) {
+    this.memory = [...program];
+    this.pointer = 0;
+    this.output = [];
   }
 
-  add(a, b) {
-    return a + b;
-  }
-  mul(a, b) {
-    return a * b;
-  }
-  print(val) {
-    console.log(val);
-  }
-  input() {
-    return +prompt();
-  }
-
-  parseInstruction(instrction) {
-    // instruction
-    //0 - 0 - 0 -- 00 => resltMode - opt2Mode - opt1Mode -- opcode
-    const instrctionStr = instrction.toString().padStart(5);
-    const [resltMode, opt2Mode, opt1Mode, opcode] = [
-      instrctionStr[0],
-      instrctionStr[1],
-      instrctionStr[2],
-      instrctionStr.slice(3),
-    ];
-
-    return [resltMode, opt2Mode, opt1Mode, opcode].map(Number);
-  }
-
-  getParms(currentPos, parmsCount) {
-    this.#cursorpos += parmsCount + 1;
-    if (parmsCount === 3) {
-      return [
-        this.instructions[currentPos + 1],
-        this.instructions[currentPos + 2],
-        this.instructions[currentPos + 3],
-      ];
-    }
-    return [this.instructions[currentPos + 1]];
+  getParameter(mode, offset) {
+    return mode === 0
+      ? this.memory[this.memory[this.pointer + offset]] || 0
+      : this.memory[this.pointer + offset] || 0;
   }
 
   core() {
-    this.#cursorpos = 0;
-    while (this.#cursorpos < this.instructions.length) {
-      const [resltMode, opt2Mode, opt1Mode, opcode] = this.parseInstruction(
-        this.instructions[this.#cursorpos],
-      );
+    while (this.memory[this.pointer] !== 99) {
+      const instruction = String(this.memory[this.pointer]).padStart(5, "0");
+      const opcode = Number(instruction.slice(3));
+      const modes = instruction.slice(0, 3).split("").reverse().map(Number);
 
-      //halt
-
-      if (opcode === 99) {
-        console.log("completed");
-
-        break;
-      }
-      //add
-
-      if (opcode === 1) {
-        const optneed = 3;
-        const [opt1, opt2, resluaddress] = this.getParms(
-          this.#cursorpos,
-          optneed,
-        );
-        let value1 = this.instructions[opt1];
-        let value2 = this.instructions[opt2];
-        if (Boolean(opt1Mode)) {
-          value1 = opt1;
+      switch (opcode) {
+        case 1: { // Addition
+          const param1 = this.getParameter(modes[0], 1);
+          const param2 = this.getParameter(modes[1], 2);
+          this.memory[this.memory[this.pointer + 3]] = param1 + param2;
+          this.pointer += 4;
+          break;
         }
-        if (Boolean(opt2Mode)) {
-          value2 = opt2;
+        case 2: { // Multiplication
+          const param1 = this.getParameter(modes[0], 1);
+          const param2 = this.getParameter(modes[1], 2);
+          this.memory[this.memory[this.pointer + 3]] = param1 * param2;
+          this.pointer += 4;
+          break;
         }
-
-        this.instructions[resluaddress] = this.add(value1, value2);
-      }
-
-      //mul
-      if (opcode === 2) {
-        const optneed = 3;
-        const [opt1, opt2, resluaddress] = this.getParms(
-          this.#cursorpos,
-          optneed,
-        );
-        let value1 = this.instructions[opt1];
-        let value2 = this.instructions[opt2];
-        if (Boolean(opt1Mode)) {
-          value1 = opt1;
+        case 3: { // Input
+          this.memory[this.memory[this.pointer + 1]] = +prompt();
+          this.pointer += 2;
+          break;
         }
-        if (Boolean(opt2Mode)) {
-          value2 = opt2;
+        case 4: { // Output
+          const param1 = this.getParameter(modes[0], 1);
+          console.log(param1);
+
+          this.pointer += 2;
+          break;
         }
-        this.instructions[resluaddress] = this.mul(value1, value2);
-      }
-
-      //input
-
-      if (opcode === 3) {
-        const address = this.instructions[this.#cursorpos + 1];
-        this.#cursorpos += 2;
-        this.instructions[address] = this.input();
-      }
-      //print
-
-      if (opcode === 4) {
-        const [address] = this.getParms(this.#cursorpos, 1);
-        if (!Boolean(opt1Mode)) {
-          this.print(this.instructions[address]);
-        } else {
-          this.print(address);
+        case 5: { // Jump-if-true
+          const param1 = this.getParameter(modes[0], 1);
+          const param2 = this.getParameter(modes[1], 2);
+          this.pointer = param1 !== 0 ? param2 : this.pointer + 3;
+          break;
         }
+        case 6: { // Jump-if-false
+          const param1 = this.getParameter(modes[0], 1);
+          const param2 = this.getParameter(modes[1], 2);
+          this.pointer = param1 === 0 ? param2 : this.pointer + 3;
+          break;
+        }
+        case 7: { // Less than
+          const param1 = this.getParameter(modes[0], 1);
+          const param2 = this.getParameter(modes[1], 2);
+          this.memory[this.memory[this.pointer + 3]] = param1 < param2 ? 1 : 0;
+          this.pointer += 4;
+          break;
+        }
+        case 8: { // Equals
+          const param1 = this.getParameter(modes[0], 1);
+          const param2 = this.getParameter(modes[1], 2);
+          this.memory[this.memory[this.pointer + 3]] = param1 === param2
+            ? 1
+            : 0;
+          this.pointer += 4;
+          break;
+        }
+        default:
+          throw new Error(
+            `Unknown opcode ${opcode} at position ${this.pointer}`,
+          );
       }
     }
+    return this.output;
   }
 }
 
-const obj = new Interpreter(input);
-
-obj.core();
+const interpreter = new Interpreter(input);
+interpreter.core();
